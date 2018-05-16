@@ -23,8 +23,19 @@
  */
 package io.mycat.server.parser;
 
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
+import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
+import com.alibaba.druid.sql.parser.SQLStatementParser;
+import io.mycat.cache.LayerCachePool;
+import io.mycat.route.RouteResultset;
+import io.mycat.route.parser.druid.DruidParser;
+import io.mycat.route.parser.druid.MycatSchemaStatVisitor;
+import io.mycat.route.parser.druid.impl.DefaultDruidParser;
 import io.mycat.route.parser.util.CharTypes;
 import io.mycat.route.parser.util.ParseUtil;
+
+import java.sql.SQLNonTransientException;
 
 /**
  * @author mycat
@@ -45,6 +56,13 @@ public final class ServerParseSelect {
 
 	public static final int SESSION_TX_READ_ONLY = 10;
 
+    public static final int SCHEMA_PRIVILEGES = 11;
+    public static final int TABLE_PRIVILEGES = 12;
+    public static final int USER_PRIVILEGES = 13;
+    public static final int SCHEMATA = 14;
+    public static final int TABLES = 15;
+    public static final int COLUMNS = 16;
+
 	private static final char[] _VERSION_COMMENT = "VERSION_COMMENT"
 			.toCharArray();
 	private static final char[] _IDENTITY = "IDENTITY".toCharArray();
@@ -53,7 +71,41 @@ public final class ServerParseSelect {
 	private static final char[] _DATABASE = "DATABASE()".toCharArray();
 	private static final char[] _CURRENT_USER = "CURRENT_USER()".toCharArray();
 
+
+	public static int parseByDruid(String sql) {
+		if(!sql.toUpperCase().contains("INFORMATION_SCHEMA")){
+			return OTHER;
+		}
+		// 通过druid解析出系统表
+		MySqlStatementParser parser = new MySqlStatementParser(sql);
+		SQLStatement stmt = parser.parseStatement();
+		MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
+		stmt.accept(visitor);
+		switch (visitor.getCurrentTable().toUpperCase()){
+			case "INFORMATION_SCHEMA.SCHEMA_PRIVILEGES":
+				return SCHEMA_PRIVILEGES;
+			case "INFORMATION_SCHEMA.TABLE_PRIVILEGES":
+				return TABLE_PRIVILEGES;
+			case "INFORMATION_SCHEMA.USER_PRIVILEGES":
+				return USER_PRIVILEGES;
+			case "INFORMATION_SCHEMA.SCHEMATA":
+				return SCHEMATA;
+			case "INFORMATION_SCHEMA.TABLES":
+				return TABLES;
+			case "INFORMATION_SCHEMA.COLUMNS":
+				return COLUMNS;
+			default:
+				return OTHER;
+			}
+	}
+
 	public static int parse(String stmt, int offset) {
+		// 先解析系统表
+		int result = parseByDruid(stmt);
+		if( OTHER != result){
+			return result;
+		}
+
 		int i = offset;
 		for (; i < stmt.length(); ++i) {
 			switch (stmt.charAt(i)) {

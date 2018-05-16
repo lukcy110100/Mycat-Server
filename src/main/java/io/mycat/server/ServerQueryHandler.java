@@ -53,10 +53,12 @@ public class ServerQueryHandler implements FrontendQueryHandler {
 	public void query(String sql) {
 		
 		ServerConnection c = this.source;
+		LOGGER.info(new StringBuilder().append(c).append(sql).toString());
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug(new StringBuilder().append(c).append(sql).toString());
 		}
-		//
+		// yaodh: 通过位运算，同时保存解析首单词字符偏移位置和类型，ServerParse.parse往左偏移了8位，留了8位给sqlType
+		// 然后，偏移量右移8位获取，sqlType通过与&255（0xff）操作获取
 		int rs = ServerParse.parse(sql);
 		int sqlType = rs & 0xff;
 		

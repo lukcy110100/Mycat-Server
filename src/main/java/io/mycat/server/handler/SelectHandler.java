@@ -35,6 +35,7 @@ import io.mycat.server.response.*;
 public final class SelectHandler {
 
 	public static void handle(String stmt, ServerConnection c, int offs) {
+		// TODO yaodh
 		int offset = offs;
 		switch (ServerParseSelect.parse(stmt, offs)) {
 		case ServerParseSelect.VERSION_COMMENT:
@@ -101,6 +102,24 @@ public final class SelectHandler {
 			case ServerParseSelect.SESSION_TX_READ_ONLY:
 				SelectTxReadOnly.response(c);
 				break;
+        case ServerParseSelect.SCHEMA_PRIVILEGES:
+            SelectSchemaPrivilege.execute(c, stmt);
+            break;
+        case ServerParseSelect.TABLE_PRIVILEGES:
+            SelectTablePrivilege.execute(c, stmt);
+            break;
+        case ServerParseSelect.USER_PRIVILEGES:
+            SelectUserPrivilege.execute(c, stmt);
+            break;
+        case ServerParseSelect.SCHEMATA:
+            SelectSchemata.execute(c, stmt);
+            break;
+        case ServerParseSelect.TABLES:
+            SelectSchemaTables.execute(c, stmt);
+            break;
+        case ServerParseSelect.COLUMNS:
+            SelectSchemaColumns.execute(c, stmt);
+            break;
 		default:
 			c.execute(stmt, ServerParse.SELECT);
 		}
