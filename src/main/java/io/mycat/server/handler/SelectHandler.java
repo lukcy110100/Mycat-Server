@@ -106,10 +106,10 @@ public final class SelectHandler {
             SelectSchemaPrivilege.execute(c, stmt);
             break;
         case ServerParseSelect.TABLE_PRIVILEGES:
-            SelectTablePrivilege.execute(c, stmt);
+            SelectSchemaTablePrivilege.execute(c, stmt);
             break;
         case ServerParseSelect.USER_PRIVILEGES:
-            SelectUserPrivilege.execute(c, stmt);
+            SelectSchemaUserPrivilege.execute(c, stmt);
             break;
         case ServerParseSelect.SCHEMATA:
             SelectSchemata.execute(c, stmt);

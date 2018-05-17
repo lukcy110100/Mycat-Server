@@ -23,34 +23,47 @@
  */
 package io.mycat.server.response;
 
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
+import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.google.common.collect.Lists;
+import io.mycat.MycatServer;
 import io.mycat.backend.mysql.PacketUtil;
 import io.mycat.config.Fields;
+import io.mycat.config.MycatConfig;
+import io.mycat.config.model.UserConfig;
 import io.mycat.net.mysql.EOFPacket;
 import io.mycat.net.mysql.FieldPacket;
 import io.mycat.net.mysql.ResultSetHeaderPacket;
+import io.mycat.net.mysql.RowDataPacket;
 import io.mycat.server.ServerConnection;
+import io.mycat.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * @author mycat
  */
-public final class SelectTablePrivilege
+public final class SelectSchemaTablePrivilege
 {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SelectTablePrivilege.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SelectSchemaTablePrivilege.class);
 
 
     public static void execute(ServerConnection c, String sql) {
 
-        List<String> splitVar = Lists.newArrayList("TABLE_SCHEMA", "TABLE_NAME", "PRIVILEGE_TYPE");
+        // "GRANTEE","TABLE_CATALOG","TABLE_SCHEMA","TABLE_NAME","PRIVILEGE_TYPE","IS_GRANTABLE"
+        List<String> allColumn = Lists.newArrayList("GRANTEE","TABLE_CATALOG","TABLE_SCHEMA","TABLE_NAME","PRIVILEGE_TYPE","IS_GRANTABLE");
+        MySqlStatementParser parser = new MySqlStatementParser(sql);
+        SQLStatement stmt = parser.parseStatement();
+        MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
+        stmt.accept(visitor);
 
+        List<String> splitVar = SelectDTXBase.getHeadder(visitor.getColumns(), allColumn);
         int FIELD_COUNT = splitVar.size();
         ResultSetHeaderPacket header = PacketUtil.getHeader(FIELD_COUNT);
         FieldPacket[] fields = new FieldPacket[FIELD_COUNT];
@@ -82,43 +95,32 @@ public final class SelectTablePrivilege
         buffer = eof.write(buffer, c,true);
 
         // write rows
-        //byte packetId = eof.packetId;
-
-     //   RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//        for (int i1 = 0, splitVarSize = splitVar.size(); i1 < splitVarSize; i1++)
-//        {
-//            String s = splitVar.get(i1);
-//            String value=  variables.get(s) ==null?"":variables.get(s) ;
-//            row.add(value.getBytes());
-//
-//        }
         List<String> values = Lists.newArrayList("SELECT","INSERT","UPDATE","DELETE","CREATE","DROP","RELOAD","SHUTDOWN","PROCESS","FILE","REFERENCES","INDEX","ALTER","SHOW DATABASES","SUPER","CREATE TEMPORARY TABLES","LOCK TABLES","EXECUTE","REPLICATION SLAVE","REPLICATION CLIENT","CREATE VIEW","SHOW VIEW","CREATE ROUTINE","ALTER ROUTINE","CREATE USER","EVENT","TRIGGER","CREATE TABLESPACE");
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("%", c.getCharset()));
-//            row.add(StringUtil.encode(name, c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("base", c.getCharset()));
-//            row.add(StringUtil.encode(name, c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("BASE", c.getCharset()));
-//            row.add(StringUtil.encode(name, c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
+        // 从配置文件获取逻辑库和用户名进行拼接
+        MycatConfig conf = MycatServer.getInstance().getConfig();
+        Map<String, UserConfig> users = conf.getUsers();
+        // 构造结果集，包含所有列，同時根據條件過濾
+        Map<String, Integer> columnIndex = SelectDTXBase.toMapIndex(allColumn);
+        List<String[]> dataRows = new ArrayList<>();
+        users.forEach((k, v) -> {
+            for (String name : values) {
+                String grantee = String.format("'%s'@'%%'", v.getName());
+                String[] datRow = new String[]{grantee, "def", "%", "%", name, "NO"};
+                if (SelectDTXBase.filterRow(datRow, visitor.getConditions(), columnIndex)) {
+                    dataRows.add(datRow);
+                }
+            }
+        });
 
-//        row.packetId = ++packetId;
-//        buffer = row.write(buffer, c,true);
-
-
+        // 返回结果集，過濾列
+        for (String[] dataRow : dataRows) {
+            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
+            for (String head : splitVar) {
+                row.add(StringUtil.encode(dataRow[columnIndex.get(head)], c.getCharset()));
+            }
+            row.packetId = ++packetId;
+            buffer = row.write(buffer, c, true);
+        }
 
         // write lastEof
         EOFPacket lastEof = new EOFPacket();

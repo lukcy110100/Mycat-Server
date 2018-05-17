@@ -23,9 +23,16 @@
  */
 package io.mycat.server.response;
 
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
+import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.google.common.collect.Lists;
+import io.mycat.MycatServer;
 import io.mycat.backend.mysql.PacketUtil;
 import io.mycat.config.Fields;
+import io.mycat.config.MycatConfig;
+import io.mycat.config.model.SchemaConfig;
+import io.mycat.config.model.UserConfig;
 import io.mycat.net.mysql.EOFPacket;
 import io.mycat.net.mysql.FieldPacket;
 import io.mycat.net.mysql.ResultSetHeaderPacket;
@@ -52,7 +59,15 @@ public final class SelectSchemata
     public static void execute(ServerConnection c, String sql) {
 
 
-    List<String>  splitVar= Lists.newArrayList("schema_name") ;
+        // "CATALOG_NAME","SCHEMA_NAME","DEFAULT_CHARACTER_SET_NAME","DEFAULT_COLLATION_NAME","SQL_PATH"
+        // 从配置文件获取逻辑库和用户名进行拼接
+        List<String> allColumn = Lists.newArrayList("CATALOG_NAME","SCHEMA_NAME","DEFAULT_CHARACTER_SET_NAME","DEFAULT_COLLATION_NAME","SQL_PATH");
+        MySqlStatementParser parser = new MySqlStatementParser(sql);
+        SQLStatement stmt = parser.parseStatement();
+        MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
+        stmt.accept(visitor);
+
+        List<String> splitVar = SelectDTXBase.getHeadder(visitor.getColumns(), allColumn);
 
         int FIELD_COUNT = splitVar.size();
         ResultSetHeaderPacket header = PacketUtil.getHeader(FIELD_COUNT);
@@ -86,42 +101,28 @@ public final class SelectSchemata
         buffer = eof.write(buffer, c,true);
 
         // write rows
-        //byte packetId = eof.packetId;
+        // 从配置文件获取逻辑库和用户名进行拼接
+        MycatConfig conf = MycatServer.getInstance().getConfig();
+        Map<String, SchemaConfig> schemas = conf.getSchemas();
+        // 构造结果集，包含所有列，同時根據條件過濾
+        Map<String, Integer> columnIndex = SelectDTXBase.toMapIndex(allColumn);
+        List<String[]> dataRows = new ArrayList<>();
+        schemas.forEach((k, v) -> {
+            String[] datRow = new String[]{"def", k, "utf8", "utf8_general_ci", null};
+            if (SelectDTXBase.filterRow(datRow, visitor.getConditions(), columnIndex)) {
+                dataRows.add(datRow);
+            }
+        });
 
-     //   RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//        for (int i1 = 0, splitVarSize = splitVar.size(); i1 < splitVarSize; i1++)
-//        {
-//            String s = splitVar.get(i1);
-//            String value=  variables.get(s) ==null?"":variables.get(s) ;
-//            row.add(value.getBytes());
-//
-//        }
-        List<String> values = Lists.newArrayList("base","BASE");
-        for (String name : values) {
+        // 返回结果集，過濾列
+        for (String[] dataRow : dataRows) {
             RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-
-            row.add(StringUtil.encode(name, c.getCharset()));
+            for (String head : splitVar) {
+                row.add(StringUtil.encode(dataRow[columnIndex.get(head)], c.getCharset()));
+            }
             row.packetId = ++packetId;
-            buffer = row.write(buffer, c,true);
+            buffer = row.write(buffer, c, true);
         }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("base", c.getCharset()));
-//            row.add(StringUtil.encode(name, c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("BASE", c.getCharset()));
-//            row.add(StringUtil.encode(name, c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
-
-//        row.packetId = ++packetId;
-//        buffer = row.write(buffer, c,true);
-
 
 
         // write lastEof
@@ -132,74 +133,5 @@ public final class SelectSchemata
         // write buffer
         c.write(buffer);
     }
-
-    private static List<String> convert(List<String> in)
-    {
-        List<String> out=new ArrayList<>();
-        for (String s : in)
-        {
-          int asIndex=s.toUpperCase().indexOf(" AS ");
-            if(asIndex!=-1)
-            {
-                out.add(s.substring(asIndex+4)) ;
-            }
-        }
-         if(out.isEmpty())
-         {
-             return in;
-         }  else
-         {
-             return out;
-         }
-
-
-    }
-
-
-
-
-    private static final Map<String, String> variables = new HashMap<String, String>();
-    static {
-        variables.put("@@character_set_client", "utf8");
-        variables.put("@@character_set_connection", "utf8");
-        variables.put("@@character_set_results", "utf8");
-        variables.put("@@character_set_server", "utf8");
-        variables.put("@@init_connect", "");
-        variables.put("@@interactive_timeout", "172800");
-        variables.put("@@license", "GPL");
-        variables.put("@@lower_case_table_names", "1");
-        variables.put("@@max_allowed_packet", "16777216");
-        variables.put("@@net_buffer_length", "16384");
-        variables.put("@@net_write_timeout", "60");
-        variables.put("@@query_cache_size", "0");
-        variables.put("@@query_cache_type", "OFF");
-        variables.put("@@sql_mode", "STRICT_TRANS_TABLES");
-        variables.put("@@system_time_zone", "CST");
-        variables.put("@@time_zone", "SYSTEM");
-        variables.put("@@tx_isolation", "REPEATABLE-READ");
-        variables.put("@@wait_timeout", "172800");
-        variables.put("@@session.auto_increment_increment", "1");
-
-        variables.put("character_set_client", "utf8");
-        variables.put("character_set_connection", "utf8");
-        variables.put("character_set_results", "utf8");
-        variables.put("character_set_server", "utf8");
-        variables.put("init_connect", "");
-        variables.put("interactive_timeout", "172800");
-        variables.put("license", "GPL");
-        variables.put("lower_case_table_names", "1");
-        variables.put("max_allowed_packet", "16777216");
-        variables.put("net_buffer_length", "16384");
-        variables.put("net_write_timeout", "60");
-        variables.put("query_cache_size", "0");
-        variables.put("query_cache_type", "OFF");
-        variables.put("sql_mode", "STRICT_TRANS_TABLES");
-        variables.put("system_time_zone", "CST");
-        variables.put("time_zone", "SYSTEM");
-        variables.put("tx_isolation", "REPEATABLE-READ");
-        variables.put("wait_timeout", "172800");
-        variables.put("auto_increment_increment", "1");
-    }
-    
 
 }
