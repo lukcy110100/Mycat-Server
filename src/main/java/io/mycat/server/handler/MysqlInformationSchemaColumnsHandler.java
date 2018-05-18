@@ -62,7 +62,8 @@ public class MysqlInformationSchemaColumnsHandler {
             //找到默认节点对应的物理分片库名
             String defautNode = schema.getDataNode();
             //如果默认节点和rrs已有节点不一样，则修改
-            if (!rrs.getNodes()[0].getName().equals(defautNode)) {
+            if (rrs.getNodes() == null
+                    || (rrs.getNodes().length > 0 && !rrs.getNodes()[0].getName().equals(defautNode))){
                 rrs = RouterUtil.routeToSingleNode(rrs, defautNode, stmt);
             }
 

@@ -124,7 +124,8 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 		if ( rrs != null && rrs.getStatement() != null) {
 			netInBytes += rrs.getStatement().getBytes().length;
 		}
-        
+        tableSchemaConditionValue = rrs.getTableSchemaConditionValue();
+
 	}
 
 	@Override
