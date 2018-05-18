@@ -459,7 +459,7 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 		
 		this.netOutBytes += row.length;
 		this.selectRows++;
-		if (rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_COLUMNS) {
+		if (rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_COLUMNS || rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_TABLES) {
 			RowDataPacket rowDataPacket = new RowDataPacket(fieldCount);
 			rowDataPacket.read(row);
 			//如果和查询条件中的table_schema值不一致，要还原

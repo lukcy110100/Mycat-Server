@@ -226,7 +226,7 @@ public class ServerConnection extends FrontendConnection {
 		}
 
 		//处理select information_schema.columns
-		if (ServerParse.INFORMATION_SCHEMA_COLUMNS == type)
+		if (ServerParse.INFORMATION_SCHEMA_COLUMNS == type || ServerParse.INFORMATION_SCHEMA_TABLES == type)
 		{
 			RouteResultset rrs = new RouteResultset(sql, ServerParse.INFORMATION_SCHEMA_COLUMNS);
 			//当前只考虑查询单个schema的情况，路由到schema的默认节点

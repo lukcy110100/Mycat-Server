@@ -55,7 +55,7 @@ public final class SelectSchemaPrivilege
 
     public static void execute(ServerConnection c, String sql) {
 
-        // TODO yaodh 用druid解析语句，获得列名和查询条件
+        // 用druid解析语句，获得列名和查询条件
         // "GRANTEE","TABLE_CATALOG","TABLE_SCHEMA","PRIVILEGE_TYPE","IS_GRANTABLE"
         List<String> allColumn = Lists.newArrayList("GRANTEE","TABLE_CATALOG","TABLE_SCHEMA","PRIVILEGE_TYPE","IS_GRANTABLE");
         MySqlStatementParser parser = new MySqlStatementParser(sql);
@@ -108,6 +108,7 @@ public final class SelectSchemaPrivilege
         Map<String, UserConfig> users = conf.getUsers();
         // 构造结果集，包含所有列，同時根據條件過濾
         Map<String, Integer> columnIndex = SelectDTXBase.toMapIndex(allColumn);
+//        conf.getSchemas().get("").getTables().get("").getPrimaryKey();
         List<String[]> dataRows = new ArrayList<>();
         users.forEach((k,v)->{
             for (String name : values){

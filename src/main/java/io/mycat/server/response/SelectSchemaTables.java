@@ -96,7 +96,7 @@ public final class SelectSchemaTables
 //            row.add(value.getBytes());
 //
 //        }
-        List<String> values = Lists.newArrayList("company","dts_increment_trx","COMPANY","DTS_INCREMENT_TRX");
+        List<String> values = Lists.newArrayList("company","dts_increment_trx","COMPANY","DTS_INCREMENT_TRX","customers");
         for (String name : values) {
             RowDataPacket row = new RowDataPacket(FIELD_COUNT);
             row.add(StringUtil.encode("TESTDB", c.getCharset()));

@@ -115,6 +115,26 @@ public final class SelectSchemaColumns
             row.packetId = ++packetId;
             buffer = row.write(buffer, c,true);
         }
+
+        values = Lists.newArrayList("customers");
+        for (String name : values) {
+            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
+            row.add(StringUtil.encode("ID", c.getCharset()));
+            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(StringUtil.encode("int(11)", c.getCharset()));
+            row.packetId = ++packetId;
+            buffer = row.write(buffer, c,true);
+        }
+        for (String name : values) {
+            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
+            row.add(StringUtil.encode("NAME", c.getCharset()));
+            row.add(StringUtil.encode("utf8", c.getCharset()));
+            row.add(StringUtil.encode("utf8_general_ci", c.getCharset()));
+            row.add(StringUtil.encode("varchar(20)", c.getCharset()));
+            row.packetId = ++packetId;
+            buffer = row.write(buffer, c,true);
+        }
         for (String name : values) {
             RowDataPacket row = new RowDataPacket(FIELD_COUNT);
             row.add(StringUtil.encode("ADDRE", c.getCharset()));
@@ -124,33 +144,34 @@ public final class SelectSchemaColumns
             row.packetId = ++packetId;
             buffer = row.write(buffer, c,true);
         }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("AGE", c.getCharset()));
-//            row.add(StringUtil.encode("", c.getCharset()));
-//            row.add(StringUtil.encode("", c.getCharset()));
-//            row.add(StringUtil.encode("int(11)", c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("ADDRESS", c.getCharset()));
-//            row.add(StringUtil.encode("utf8", c.getCharset()));
-//            row.add(StringUtil.encode("utf8_general_ci", c.getCharset()));
-//            row.add(StringUtil.encode("char(20)", c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
-//        for (String name : values) {
-//            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
-//            row.add(StringUtil.encode("SALARY", c.getCharset()));
-//            row.add(StringUtil.encode("", c.getCharset()));
-//            row.add(StringUtil.encode("", c.getCharset()));
-//            row.add(StringUtil.encode("decimal(18,2)", c.getCharset()));
-//            row.packetId = ++packetId;
-//            buffer = row.write(buffer, c,true);
-//        }
+
+        for (String name : values) {
+            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
+            row.add(StringUtil.encode("AGE", c.getCharset()));
+            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(StringUtil.encode("int(11)", c.getCharset()));
+            row.packetId = ++packetId;
+            buffer = row.write(buffer, c,true);
+        }
+        for (String name : values) {
+            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
+            row.add(StringUtil.encode("ADDRESS", c.getCharset()));
+            row.add(StringUtil.encode("utf8", c.getCharset()));
+            row.add(StringUtil.encode("utf8_general_ci", c.getCharset()));
+            row.add(StringUtil.encode("char(20)", c.getCharset()));
+            row.packetId = ++packetId;
+            buffer = row.write(buffer, c,true);
+        }
+        for (String name : values) {
+            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
+            row.add(StringUtil.encode("SALARY", c.getCharset()));
+            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(StringUtil.encode("decimal(18,2)", c.getCharset()));
+            row.packetId = ++packetId;
+            buffer = row.write(buffer, c,true);
+        }
 //        for (String name : values) {
 //            RowDataPacket row = new RowDataPacket(FIELD_COUNT);
 //            row.add(StringUtil.encode("_slot", c.getCharset()));
