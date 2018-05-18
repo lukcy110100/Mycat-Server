@@ -174,7 +174,25 @@ public class ServerConnection extends FrontendConnection {
 			}
 			isDefault = false;
 		}
-		
+
+		//处理select information_schema.columns
+		if (ServerParse.INFORMATION_SCHEMA_COLUMNS == type)
+		{
+			RouteResultset rrs = new RouteResultset(sql, ServerParse.INFORMATION_SCHEMA_COLUMNS);
+			//改写Sql
+			MysqlInformationSchemaColumnsHandler columnsHandler = new MysqlInformationSchemaColumnsHandler(getUser(), sql, rrs);
+			try {
+				columnsHandler.handle();
+			} catch (Exception e) {
+				LOGGER.error("MysqlInformationSchemaColumnsHandler routeSQL error:{} ", e);
+				writeErrMessage(ErrorCode.ER_PARSE_ERROR, "routeSQL error");
+				return;
+			}
+			session.execute(rrs, rrs.getSqlType());
+			return;
+		}
+
+
 		// 兼容PhpAdmin's, 支持对MySQL元数据的模拟返回
 		//// TODO: 2016/5/20 支持更多information_schema特性
 		if (ServerParse.SELECT == type 
@@ -223,25 +241,6 @@ public class ServerConnection extends FrontendConnection {
 				if (schemaConfig != null)
 					schema = schemaConfig;
 			}
-		}
-
-		//处理select information_schema.columns
-		if (ServerParse.INFORMATION_SCHEMA_COLUMNS == type)
-		{
-			RouteResultset rrs = new RouteResultset(sql, ServerParse.INFORMATION_SCHEMA_COLUMNS);
-			//当前只考虑查询单个schema的情况，路由到schema的默认节点
-			rrs = RouterUtil.routeToSingleNode(rrs, schema.getDataNode(), sql);
-			//改写Sql
-			MysqlInformationSchemaColumnsHandler columnsHandler = new MysqlInformationSchemaColumnsHandler(getUser(), sql, rrs);
-			try {
-				columnsHandler.handle();
-			} catch (Exception e) {
-				LOGGER.error("MysqlInformationSchemaColumnsHandler routeSQL error:{}", e);
-				writeErrMessage(ErrorCode.ER_PARSE_ERROR, "routeSQL error");
-				return;
-			}
-			session.execute(rrs, rrs.getSqlType());
-			return;
 		}
 
 		routeEndExecuteSQL(sql, type, schema);
