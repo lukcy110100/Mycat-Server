@@ -8,8 +8,13 @@ import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import io.mycat.MycatServer;
 import io.mycat.config.model.SchemaConfig;
 import io.mycat.route.parser.druid.MycatSchemaStatVisitor;
+import io.mycat.server.NonBlockingSession;
 import io.mycat.server.parser.ServerParse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,10 +24,24 @@ import java.util.regex.Pattern;
  */
 public class SchemaUtil
 {
+    private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
+    public static List<SchemaInfo> parseSchemas(String sql)
+    {
+        SQLStatement statement;
+        SQLStatementParser parser = new MySqlStatementParser(sql);
+        try {
+            statement = parser.parseStatement();
+            return parseTables(statement, new MycatSchemaStatVisitor());
+        } catch (Exception t) {
+            logger.error("SchemaUtil parseSchemas exception:{}",t);
+        }
+        return null;
+    }
+
     public static SchemaInfo parseSchema(String sql)
     {
         SQLStatementParser parser = new MySqlStatementParser(sql);
-      return parseTables(parser.parseStatement(),new MycatSchemaStatVisitor()  );
+      return parseTable(parser.parseStatement(),new MycatSchemaStatVisitor()  );
     }
     public static String detectDefaultDb(String sql, int type)
     {
@@ -79,7 +98,7 @@ public class SchemaUtil
         return null;
     }
 
-    private static SchemaInfo parseTables(SQLStatement stmt, SchemaStatVisitor schemaStatVisitor)
+    private static SchemaInfo parseTable(SQLStatement stmt, SchemaStatVisitor schemaStatVisitor)
     {
 
                 stmt.accept(schemaStatVisitor);
@@ -106,7 +125,40 @@ public class SchemaUtil
 
         return null;
     }
+    private static List<SchemaInfo> parseTables(SQLStatement stmt, SchemaStatVisitor schemaStatVisitor)
+    {
+        List<SchemaInfo> schemaInfos = new ArrayList<>();
+        stmt.accept(schemaStatVisitor);
 
+        if (schemaStatVisitor.getAliasMap() != null)
+        {
+            for (Map.Entry<String, String> entry : schemaStatVisitor.getAliasMap().entrySet())
+            {
+                String key = entry.getKey();
+                if (key != null && key.contains("`"))
+                {
+                    key = key.replaceAll("`", "");
+                }
+                if (key != null)
+                {
+                    SchemaInfo schemaInfo = new SchemaInfo();
+                    int pos = key.indexOf(".");
+                    if (pos > 0)
+                    {
+                        schemaInfo.schema = key.substring(0, pos);
+                        schemaInfo.table = key.substring(pos + 1);
+                    }
+                    else
+                    {
+                        schemaInfo.table = key;
+                    }
+                    schemaInfos.add(schemaInfo);
+                }
+
+            }
+        }
+        return schemaInfos;
+    }
 
     public static  class SchemaInfo
     {

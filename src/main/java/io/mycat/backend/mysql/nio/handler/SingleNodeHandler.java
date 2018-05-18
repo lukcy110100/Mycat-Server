@@ -52,6 +52,7 @@ import io.mycat.server.response.ShowFullTables;
 import io.mycat.server.response.ShowTables;
 import io.mycat.statistic.stat.QueryResult;
 import io.mycat.statistic.stat.QueryResultDispatcher;
+import io.mycat.util.ByteUtil;
 import io.mycat.util.ResultSetUtil;
 import io.mycat.util.StringUtil;
 
@@ -87,7 +88,12 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
     private  Set<String> shardingTablesSet;
 	private byte[] header = null;
 	private List<byte[]> fields = null;
-	public SingleNodeHandler(RouteResultset rrs, NonBlockingSession session) {
+
+    private volatile int tableSchemaFieldIndex = -1;  //记录结果集中table_schema字段的位置
+    private volatile String tableSchemaConditionValue;  //记录查询条件中table_schema取值，用于结果还原
+
+
+    public SingleNodeHandler(RouteResultset rrs, NonBlockingSession session) {
 		this.rrs = rrs;
 		this.node = rrs.getNodes()[0];
 		
@@ -408,6 +414,10 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 			 // 保存field信息
  			FieldPacket fieldPk = new FieldPacket();
  			fieldPk.read(field);
+            String fieldName = ByteUtil.getString(fieldPk.name);  //CodeDex. FORTIFY.Poor_Error_Handling--Return_Inside_Finally
+            if (fieldName.equalsIgnoreCase("table_schema")) {
+                tableSchemaFieldIndex = i;
+            }
  			fieldPackets.add(fieldPk);
 			
 			buffer = source.writeToBuffer(field, buffer);
@@ -449,7 +459,23 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 		
 		this.netOutBytes += row.length;
 		this.selectRows++;
-		
+		if (rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_COLUMNS) {
+			RowDataPacket rowDataPacket = new RowDataPacket(fieldCount);
+			rowDataPacket.read(row);
+			//如果和查询条件中的table_schema值不一致，要还原
+			if (tableSchemaFieldIndex >= 0) {
+				String tableSchema = StringUtil.decode(rowDataPacket.fieldValues.get(tableSchemaFieldIndex), session.getSource().getJavaCharset());
+				if (tableSchema != null && tableSchemaConditionValue != null
+						&& !tableSchema.equalsIgnoreCase(tableSchemaConditionValue)) {
+					LOGGER.debug("recover table_schema value:{} to {}",tableSchema, tableSchemaConditionValue);
+					rowDataPacket.packetId = ++packetId;
+					rowDataPacket.fieldValues.set(tableSchemaFieldIndex, tableSchemaConditionValue.getBytes());
+					buffer = rowDataPacket.write(buffer, session.getSource(), true);
+					return;
+				}
+			}
+		}
+
 		if (isDefaultNodeShowTable || isDefaultNodeShowFullTable) {
 			RowDataPacket rowDataPacket = new RowDataPacket(1);
 			rowDataPacket.read(row);

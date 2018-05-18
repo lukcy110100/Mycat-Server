@@ -28,6 +28,9 @@ package io.mycat.config;
  */
 public interface ErrorCode {
 
+	int ERR_TABLESCHEMA_NOT_SPECIFIED = 4010;
+	int ERR_TABLESCHEMA_CONDITION_ILLEGAL = 4011;
+
 	// mycat error code
     public static final int ERR_BAD_LOGICDB = 3000;
     public static final int ERR_OPEN_SOCKET = 3001;

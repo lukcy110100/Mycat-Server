@@ -28,6 +28,8 @@ import java.nio.channels.NetworkChannel;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.mycat.route.util.RouterUtil;
+import io.mycat.server.handler.MysqlInformationSchemaColumnsHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -221,6 +223,25 @@ public class ServerConnection extends FrontendConnection {
 				if (schemaConfig != null)
 					schema = schemaConfig;
 			}
+		}
+
+		//处理select information_schema.columns
+		if (ServerParse.INFORMATION_SCHEMA_COLUMNS == type)
+		{
+			RouteResultset rrs = new RouteResultset(sql, ServerParse.INFORMATION_SCHEMA_COLUMNS);
+			//当前只考虑查询单个schema的情况，路由到schema的默认节点
+			rrs = RouterUtil.routeToSingleNode(rrs, schema.getDataNode(), sql);
+			//改写Sql
+			MysqlInformationSchemaColumnsHandler columnsHandler = new MysqlInformationSchemaColumnsHandler(getUser(), sql, rrs);
+			try {
+				columnsHandler.handle();
+			} catch (Exception e) {
+				LOGGER.error("MysqlInformationSchemaColumnsHandler routeSQL error:{}", e);
+				writeErrMessage(ErrorCode.ER_PARSE_ERROR, "routeSQL error");
+				return;
+			}
+			session.execute(rrs, rrs.getSqlType());
+			return;
 		}
 
 		routeEndExecuteSQL(sql, type, schema);

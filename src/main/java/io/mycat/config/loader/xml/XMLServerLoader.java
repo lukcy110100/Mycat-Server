@@ -26,16 +26,12 @@ package io.mycat.config.loader.xml;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import io.mycat.config.Versions;
+import org.apache.commons.collections.map.CaseInsensitiveMap;
+import org.apache.commons.collections.set.MapBackedSet;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -225,7 +221,10 @@ public class XMLServerLoader {
 				String schemas = (String) props.get("schemas");
                 if (schemas != null) {
                     String[] strArray = SplitUtil.split(schemas, ',', true);
-                    user.setSchemas(new HashSet<String>(Arrays.asList(strArray)));
+                    Set schemalSet = MapBackedSet.decorate(new CaseInsensitiveMap());//需要忽略大小写
+                    schemalSet.addAll( Arrays.asList(strArray));
+                    user.setSchemas(schemalSet);
+//                    user.setSchemas(new HashSet<String>(Arrays.asList(strArray)));
                 }
 
                 //加载用户 DML 权限

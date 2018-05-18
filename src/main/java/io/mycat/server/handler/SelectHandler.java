@@ -117,9 +117,12 @@ public final class SelectHandler {
         case ServerParseSelect.TABLES:
             SelectSchemaTables.execute(c, stmt);
             break;
-        case ServerParseSelect.COLUMNS:
-            SelectSchemaColumns.execute(c, stmt);
-            break;
+//        case ServerParseSelect.COLUMNS:
+//            SelectSchemaColumns.execute(c, stmt);
+//            break;
+		case ServerParseSelect.COLUMNS:
+			c.execute(stmt, ServerParse.INFORMATION_SCHEMA_COLUMNS);
+			break;
 		default:
 			c.execute(stmt, ServerParse.SELECT);
 		}

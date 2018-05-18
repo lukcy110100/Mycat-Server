@@ -28,6 +28,7 @@ import java.net.StandardSocketOptions;
 import java.nio.channels.NetworkChannel;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
 import io.mycat.backend.datasource.PhysicalDBNode;
@@ -294,5 +295,27 @@ public class MycatConfig {
 		} finally {
 			lock.unlock();
 		}
-	}	
+	}
+
+
+	public Set<String> getUserSchemas(String user) {
+		UserConfig uc = users.get(user);
+		if (uc != null) {
+			return uc.getSchemas();
+		} else {
+			return null;
+		}
+	}
+
+	public boolean checkSchemaSelectPrivilege(String schema, String user) {
+		if (schema == null) {
+			return false;
+		}
+		Set<String> userSchemas = getUserSchemas(user);
+		if (userSchemas != null && userSchemas.contains(schema)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 }

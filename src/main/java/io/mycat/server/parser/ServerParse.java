@@ -58,6 +58,7 @@ public final class ServerParse {
 	public static final int DESCRIBE = 21;
 	public static final int LOCK = 22;
 	public static final int UNLOCK = 23;
+	public static final int INFORMATION_SCHEMA_COLUMNS = 28;  //select information_schema.columns
     public static final int LOAD_DATA_INFILE_SQL = 99;
     public static final int DDL = 100;
 

@@ -32,6 +32,7 @@ import java.util.*;
 import io.mycat.config.model.rule.RuleConfig;
 import io.mycat.route.function.TableRuleAware;
 import io.mycat.util.ObjectUtil;
+import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
@@ -78,7 +79,7 @@ public class XMLSchemaLoader implements SchemaLoader {
 		ruleLoader = null;
 		this.dataHosts = new HashMap<String, DataHostConfig>();
 		this.dataNodes = new HashMap<String, DataNodeConfig>();
-		this.schemas = new HashMap<String, SchemaConfig>();
+		this.schemas = new CaseInsensitiveMap();//忽略schema的大小写
 		//读取加载schema配置
 		this.load(DEFAULT_DTD, schemaFile == null ? DEFAULT_XML : schemaFile);
 	}

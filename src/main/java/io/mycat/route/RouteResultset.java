@@ -80,6 +80,10 @@ public final class RouteResultset implements Serializable {
 
     private boolean selectForUpdate;
 
+    private String tableSchemaConditionValue;  //记录table_schema查询条件值
+
+
+
     public boolean isSelectForUpdate() {
         return selectForUpdate;
     }
@@ -440,4 +444,22 @@ public final class RouteResultset implements Serializable {
         return s.toString();
     }
 
+    public void changeNodeSql(String sql)
+    {
+        if (nodes != null)
+        {
+            for (RouteResultsetNode node : nodes)
+            {
+                node.setStatement(sql);
+            }
+        }
+    }
+
+    public String getTableSchemaConditionValue() {
+        return tableSchemaConditionValue;
+    }
+
+    public void setTableSchemaConditionValue(String tableSchemaConditionValue) {
+        this.tableSchemaConditionValue = tableSchemaConditionValue;
+    }
 }

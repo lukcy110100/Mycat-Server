@@ -23,19 +23,13 @@
  */
 package io.mycat.server.parser;
 
-import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
-import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
-import com.alibaba.druid.sql.parser.SQLStatementParser;
-import io.mycat.cache.LayerCachePool;
-import io.mycat.route.RouteResultset;
-import io.mycat.route.parser.druid.DruidParser;
-import io.mycat.route.parser.druid.MycatSchemaStatVisitor;
-import io.mycat.route.parser.druid.impl.DefaultDruidParser;
 import io.mycat.route.parser.util.CharTypes;
 import io.mycat.route.parser.util.ParseUtil;
+import io.mycat.server.util.SchemaUtil;
+import org.apache.commons.collections.CollectionUtils;
 
-import java.sql.SQLNonTransientException;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * @author mycat
@@ -73,30 +67,38 @@ public final class ServerParseSelect {
 
 
 	public static int parseByDruid(String sql) {
-		if(!sql.toUpperCase().contains("INFORMATION_SCHEMA")){
+
+		if(!sql.toUpperCase(Locale.ENGLISH).contains("INFORMATION_SCHEMA")){
 			return OTHER;
 		}
-		// 通过druid解析出系统表
-		MySqlStatementParser parser = new MySqlStatementParser(sql);
-		SQLStatement stmt = parser.parseStatement();
-		MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
-		stmt.accept(visitor);
-		switch (visitor.getCurrentTable().toUpperCase()){
-			case "INFORMATION_SCHEMA.SCHEMA_PRIVILEGES":
-				return SCHEMA_PRIVILEGES;
-			case "INFORMATION_SCHEMA.TABLE_PRIVILEGES":
-				return TABLE_PRIVILEGES;
-			case "INFORMATION_SCHEMA.USER_PRIVILEGES":
-				return USER_PRIVILEGES;
-			case "INFORMATION_SCHEMA.SCHEMATA":
-				return SCHEMATA;
-			case "INFORMATION_SCHEMA.TABLES":
-				return TABLES;
-			case "INFORMATION_SCHEMA.COLUMNS":
-				return COLUMNS;
-			default:
-				return OTHER;
+
+		List<SchemaUtil.SchemaInfo> schemaInfos = SchemaUtil.parseSchemas(sql);
+		if (!CollectionUtils.isEmpty(schemaInfos)) {
+			for (SchemaUtil.SchemaInfo schemaInfo : schemaInfos) {
+				if (schemaInfo.schema != null && schemaInfo.schema.equalsIgnoreCase("information_schema")) {
+					if (schemaInfo.table != null) {
+						switch (schemaInfo.table.toUpperCase()){
+							case "SCHEMA_PRIVILEGES":
+								return SCHEMA_PRIVILEGES;
+							case "TABLE_PRIVILEGES":
+								return TABLE_PRIVILEGES;
+							case "USER_PRIVILEGES":
+								return USER_PRIVILEGES;
+							case "SCHEMATA":
+								return SCHEMATA;
+							case "TABLES":
+								return TABLES;
+							case "COLUMNS":
+								return COLUMNS;
+							default:
+								return OTHER;
+						}
+					}
+				}
 			}
+		}
+
+		return OTHER;
 	}
 
 	public static int parse(String stmt, int offset) {
