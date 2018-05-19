@@ -243,7 +243,7 @@ public class ServerConnection extends FrontendConnection {
 			}
 		}
 
-
+		routeEndExecuteSQL(sql, type, schema);
 
 	}
 	

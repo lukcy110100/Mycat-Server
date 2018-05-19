@@ -96,16 +96,18 @@ public final class SelectSchemaTables
 //            row.add(value.getBytes());
 //
 //        }
-        List<String> values = Lists.newArrayList("company","dts_increment_trx","COMPANY","DTS_INCREMENT_TRX","customers");
+//        List<String> values = Lists.newArrayList("company","dts_increment_trx","COMPANY","DTS_INCREMENT_TRX","customers");
+        List<String> values = Lists.newArrayList("company","customers");
         for (String name : values) {
             RowDataPacket row = new RowDataPacket(FIELD_COUNT);
             row.add(StringUtil.encode("TESTDB", c.getCharset()));
             row.add(StringUtil.encode(name, c.getCharset()));
             row.add(StringUtil.encode("InnoDB", c.getCharset()));
             row.add(StringUtil.encode("Dynamic", c.getCharset()));
-            row.add(StringUtil.encode("utf8_general_ci", c.getCharset()));
+            row.add(StringUtil.encode("utf8mb4_general_ci", c.getCharset()));
             row.add(StringUtil.encode("", c.getCharset()));
-            row.add(StringUtil.encode("", c.getCharset()));
+//            row.add(StringUtil.encode("", c.getCharset()));
+            row.add(null);
             row.packetId = ++packetId;
             buffer = row.write(buffer, c,true);
         }

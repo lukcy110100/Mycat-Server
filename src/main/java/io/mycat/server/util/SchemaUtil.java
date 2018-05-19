@@ -48,7 +48,7 @@ public class SchemaUtil
         String db=null;
         Map<String, SchemaConfig> schemaConfigMap = MycatServer.getInstance().getConfig()
                 .getSchemas();
-        if(ServerParse.SELECT==type || ServerParse.INFORMATION_SCHEMA_COLUMNS == type )
+        if(ServerParse.SELECT==type || ServerParse.INFORMATION_SCHEMA_COLUMNS == type || ServerParse.INFORMATION_SCHEMA_TABLES == type )
         {
             SchemaUtil.SchemaInfo schemaInfo = SchemaUtil.parseSchema(sql);
             if ((schemaInfo==null||schemaInfo.table==null)&&!schemaConfigMap.isEmpty())
