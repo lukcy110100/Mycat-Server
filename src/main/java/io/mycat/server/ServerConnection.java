@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 
 import io.mycat.route.util.RouterUtil;
 import io.mycat.server.handler.MysqlInformationSchemaColumnsHandler;
+import io.mycat.server.util.DTSUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -163,6 +164,10 @@ public class ServerConnection extends FrontendConnection {
 			return;
 		}
 
+		// 改写sql，去掉表名后缀
+		sql = DTSUtil.changeSQLForDTS(this.user, this.schema, sql);
+		LOGGER.info("New sql:{}", sql);
+
 		// 检查当前使用的DB
 		String db = this.schema;
 		boolean isDefault = true;
@@ -175,10 +180,11 @@ public class ServerConnection extends FrontendConnection {
 			isDefault = false;
 		}
 
+
 		//处理select information_schema.columns
 		if (ServerParse.INFORMATION_SCHEMA_COLUMNS == type || ServerParse.INFORMATION_SCHEMA_TABLES == type)
 		{
-			RouteResultset rrs = new RouteResultset(sql, ServerParse.INFORMATION_SCHEMA_COLUMNS);
+			RouteResultset rrs = new RouteResultset(sql, type);
 			//改写Sql
 			MysqlInformationSchemaColumnsHandler columnsHandler = new MysqlInformationSchemaColumnsHandler(getUser(), sql, rrs);
 			try {

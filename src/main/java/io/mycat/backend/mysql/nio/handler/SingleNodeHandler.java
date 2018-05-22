@@ -30,6 +30,7 @@ import java.util.Set;
 
 import com.google.common.base.Strings;
 
+import com.google.common.collect.Lists;
 import io.mycat.MycatServer;
 import io.mycat.backend.BackendConnection;
 import io.mycat.backend.datasource.PhysicalDBNode;
@@ -90,6 +91,7 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 	private List<byte[]> fields = null;
 
     private volatile int tableSchemaFieldIndex = -1;  //记录结果集中table_schema字段的位置
+	private volatile int tableNameFieldIndex = -1;
     private volatile String tableSchemaConditionValue;  //记录查询条件中table_schema取值，用于结果还原
 
 
@@ -419,6 +421,10 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
             if (fieldName.equalsIgnoreCase("table_schema")) {
                 tableSchemaFieldIndex = i;
             }
+
+			if (fieldName.equalsIgnoreCase("table_name")) {
+				tableNameFieldIndex = i;
+			}
  			fieldPackets.add(fieldPk);
 			
 			buffer = source.writeToBuffer(field, buffer);
@@ -450,6 +456,29 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 		}
 	}
 
+	private void generateMoreData(byte[] row, int repeat) {
+		for (int i = 0; i < repeat; i++) {
+			this.netOutBytes += row.length;
+			this.selectRows++;
+			RowDataPacket rowDataPacket = new RowDataPacket(fieldCount);
+			rowDataPacket.read(row);
+			rowDataPacket.packetId = ++packetId;
+			//如果和查询条件中的table_schema值不一致，要还原
+			if (tableSchemaFieldIndex >= 0) {
+				String tableSchema = StringUtil.decode(rowDataPacket.fieldValues.get(tableSchemaFieldIndex), session.getSource().getJavaCharset());
+				if (tableSchema != null && tableSchemaConditionValue != null && !tableSchema.equalsIgnoreCase(tableSchemaConditionValue)) {
+					rowDataPacket.fieldValues.set(tableSchemaFieldIndex, tableSchemaConditionValue.getBytes());
+				}
+			}
+			if (repeat > 1 && tableNameFieldIndex > 0) {
+				String str = StringUtil.decode(rowDataPacket.fieldValues.get(tableNameFieldIndex), session.getSource().getJavaCharset());
+				rowDataPacket.fieldValues.set(tableNameFieldIndex, (str + "_" + i).getBytes());
+			}
+			buffer = rowDataPacket.write(buffer, session.getSource(), true);
+		}
+		return;
+	}
+
 	/**
 	 * select 
 	 * 
@@ -457,24 +486,36 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 	 */
 	@Override
 	public void rowResponse(byte[] row, BackendConnection conn) {
-		
-		this.netOutBytes += row.length;
-		this.selectRows++;
-		if (rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_COLUMNS || rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_TABLES) {
-			RowDataPacket rowDataPacket = new RowDataPacket(fieldCount);
-			rowDataPacket.read(row);
-			//如果和查询条件中的table_schema值不一致，要还原
-			if (tableSchemaFieldIndex >= 0) {
-				String tableSchema = StringUtil.decode(rowDataPacket.fieldValues.get(tableSchemaFieldIndex), session.getSource().getJavaCharset());
-				if (tableSchema != null && tableSchemaConditionValue != null
-						&& !tableSchema.equalsIgnoreCase(tableSchemaConditionValue)) {
-					LOGGER.debug("recover table_schema value:{} to {}",tableSchema, tableSchemaConditionValue);
-					rowDataPacket.packetId = ++packetId;
-					rowDataPacket.fieldValues.set(tableSchemaFieldIndex, tableSchemaConditionValue.getBytes());
-					buffer = rowDataPacket.write(buffer, session.getSource(), true);
-					return;
-				}
-			}
+//		this.netOutBytes += row.length;
+//		this.selectRows++;
+//		if (rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_COLUMNS || rrs.getSqlType() == ServerParse.INFORMATION_SCHEMA_TABLES) {
+//			RowDataPacket rowDataPacket = new RowDataPacket(fieldCount);
+//			rowDataPacket.read(row);
+//			//如果和查询条件中的table_schema值不一致，要还原
+//			if (tableSchemaFieldIndex >= 0) {
+//				String tableSchema = StringUtil.decode(rowDataPacket.fieldValues.get(tableSchemaFieldIndex), session.getSource().getJavaCharset());
+//				if (tableSchema != null && tableSchemaConditionValue != null
+//						&& !tableSchema.equalsIgnoreCase(tableSchemaConditionValue)) {
+//					LOGGER.debug("recover table_schema value:{} to {}",tableSchema, tableSchemaConditionValue);
+//					rowDataPacket.packetId = ++packetId;
+//					rowDataPacket.fieldValues.set(tableSchemaFieldIndex, tableSchemaConditionValue.getBytes());
+//					buffer = rowDataPacket.write(buffer, session.getSource(), true);
+//					return;
+//				}
+//			}
+//		}
+
+		switch (rrs.getSqlType()){
+			case ServerParse.INFORMATION_SCHEMA_COLUMNS:
+				generateMoreData(row, 1);
+				return;
+			case ServerParse.INFORMATION_SCHEMA_TABLES:
+				generateMoreData(row, 10);
+				return;
+			default:
+				this.netOutBytes += row.length;
+				this.selectRows++;
+				break;
 		}
 
 		if (isDefaultNodeShowTable || isDefaultNodeShowFullTable) {

@@ -98,7 +98,7 @@ public class SchemaUtil
         return null;
     }
 
-    private static SchemaInfo parseTable(SQLStatement stmt, SchemaStatVisitor schemaStatVisitor)
+    public static SchemaInfo parseTable(SQLStatement stmt, SchemaStatVisitor schemaStatVisitor)
     {
 
                 stmt.accept(schemaStatVisitor);
@@ -125,6 +125,8 @@ public class SchemaUtil
 
         return null;
     }
+
+
     private static List<SchemaInfo> parseTables(SQLStatement stmt, SchemaStatVisitor schemaStatVisitor)
     {
         List<SchemaInfo> schemaInfos = new ArrayList<>();
@@ -180,6 +182,7 @@ private  static     Pattern pattern = Pattern.compile("^\\s*(SHOW)\\s+(FULL)*\\s
 
     public static void main(String[] args)
     {
+
         String sql = "SELECT name, type FROM `mysql`.`proc` as xxxx WHERE Db='base'";
      //   System.out.println(parseSchema(sql));
         sql="insert into aaa.test(id) values(1)" ;

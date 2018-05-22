@@ -23,6 +23,7 @@
  */
 package io.mycat.server;
 
+import io.mycat.server.util.DTSUtil;
 import org.slf4j.Logger; import org.slf4j.LoggerFactory;
 
 import io.mycat.config.ErrorCode;
@@ -53,7 +54,10 @@ public class ServerQueryHandler implements FrontendQueryHandler {
 	public void query(String sql) {
 		
 		ServerConnection c = this.source;
-		LOGGER.info(new StringBuilder().append(c).append(sql).toString());
+//		LOGGER.info(new StringBuilder().append(c).append(sql).toString());
+//		// 改写sql，去掉表名后缀
+//		sql = DTSUtil.changeSQLForDTS(c.getUser(), c.getSchema(), sql);
+//		LOGGER.info("New sql:{}", sql);
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug(new StringBuilder().append(c).append(sql).toString());
 		}

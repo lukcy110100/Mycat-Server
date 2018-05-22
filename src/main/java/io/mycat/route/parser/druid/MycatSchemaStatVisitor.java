@@ -43,11 +43,7 @@ import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.ast.statement.SQLSubqueryTableSource;
 import com.alibaba.druid.sql.ast.statement.SQLUnionQuery;
 import com.alibaba.druid.sql.ast.statement.SQLUpdateStatement;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlCreateTableStatement;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlDeleteStatement;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlHintStatement;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlInsertStatement;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
+import com.alibaba.druid.sql.dialect.mysql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
@@ -56,6 +52,7 @@ import com.alibaba.druid.stat.TableStat.Condition;
 import com.alibaba.druid.stat.TableStat.Mode;
 import com.alibaba.druid.stat.TableStat.Relationship;
 
+import com.google.common.base.Strings;
 import io.mycat.route.util.RouterUtil;
 
 /**
@@ -1398,4 +1395,46 @@ public class MycatSchemaStatVisitor extends MySqlSchemaStatVisitor {
       }
       return true;
     }
+
+	@Override
+	public boolean visit(MySqlShowCreateTableStatement x) {
+
+        setCurrentTable(x,x.getName().toString());
+		return false;
+	}
+
+	@Override
+	public boolean visit(MySqlShowIndexesStatement x) {
+		if(x.getDatabase() == null || Strings.isNullOrEmpty(x.getDatabase().getSimpleName()))
+		{
+			setCurrentTable(x,x.getTable().toString());
+		}else
+		{
+			setCurrentTable(x,x.getDatabase()+"."+x.getTable().toString());
+		}
+
+		return false;
+	}
+	@Override
+	public boolean visit(MySqlShowKeysStatement x) {
+		if(x.getDatabase() == null || Strings.isNullOrEmpty(x.getDatabase().getSimpleName()))
+		{
+			setCurrentTable(x,x.getTable().toString());
+		}else
+		{
+			setCurrentTable(x,x.getDatabase()+"."+x.getTable().toString());
+		}
+
+		return false;
+	}
+	@Override
+	public boolean visit(MySqlDescribeStatement x) {
+		String table = x.getObject().toString();
+		setCurrentTable(x,table);
+		getTableStat(table);
+		if (x.getColName() != null) {
+			addColumn(table, x.getColName().toString());
+		}
+		return false;
+	}
 }

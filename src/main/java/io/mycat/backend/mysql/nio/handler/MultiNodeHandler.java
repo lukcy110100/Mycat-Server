@@ -26,6 +26,7 @@ package io.mycat.backend.mysql.nio.handler;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
+import io.mycat.MycatServer;
 import org.slf4j.Logger; import org.slf4j.LoggerFactory;
 
 import io.mycat.backend.BackendConnection;
@@ -114,14 +115,15 @@ abstract class MultiNodeHandler implements ResponseHandler, Terminatable {
 	}
 
 	public void connectionError(Throwable e, BackendConnection conn) {
+        setFail("backend connect: "+e);
 		final boolean canClose = decrementCountBy(1);
 		// 需要把Throwable e的错误信息保存下来（setFail()）， 否则会导致响应 
 		//null信息，结果mysql命令行等客户端查询结果是"Query OK"！！
 		// @author Uncle-pan
 		// @since 2016-03-26
-		if(canClose){
-			setFail("backend connect: "+e);
-		}
+//		if(canClose){
+//			setFail("backend connect: "+e);
+//		}
 		LOGGER.warn("backend connect", e);
 		this.tryErrorFinished(canClose);
 	}
@@ -194,7 +196,7 @@ abstract class MultiNodeHandler implements ResponseHandler, Terminatable {
 
 	protected void tryErrorFinished(boolean allEnd) {
 		if (allEnd && !session.closed()) {
-			
+			MycatServer server = MycatServer.getInstance();
 			if (errorRepsponsed.compareAndSet(false, true)) {
 				createErrPkg(this.error).write(session.getSource());
 			}
