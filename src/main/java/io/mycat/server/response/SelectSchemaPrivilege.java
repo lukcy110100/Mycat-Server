@@ -26,7 +26,6 @@ package io.mycat.server.response;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
-import com.alibaba.druid.stat.TableStat;
 import com.google.common.collect.Lists;
 import io.mycat.MycatServer;
 import io.mycat.backend.mysql.PacketUtil;
@@ -43,7 +42,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author mycat
@@ -52,18 +53,15 @@ public final class SelectSchemaPrivilege
 {
     private static final Logger LOGGER = LoggerFactory.getLogger(SelectSchemaPrivilege.class);
 
-
     public static void execute(ServerConnection c, String sql) {
 
         // 用druid解析语句，获得列名和查询条件
-        // "GRANTEE","TABLE_CATALOG","TABLE_SCHEMA","PRIVILEGE_TYPE","IS_GRANTABLE"
         List<String> allColumn = Lists.newArrayList("GRANTEE","TABLE_CATALOG","TABLE_SCHEMA","PRIVILEGE_TYPE","IS_GRANTABLE");
         MySqlStatementParser parser = new MySqlStatementParser(sql);
         SQLStatement stmt = parser.parseStatement();
         MySqlSchemaStatVisitor visitor = new MySqlSchemaStatVisitor();
         stmt.accept(visitor);
 
-        //        List<String> splitVar = Lists.newArrayList("TABLE_SCHEMA", "PRIVILEGE_TYPE");
         List<String> splitVar = SelectDTXBase.getHeadder(visitor.getColumns(), allColumn);
         if(splitVar.size() == 0){
             return;
@@ -108,7 +106,6 @@ public final class SelectSchemaPrivilege
         Map<String, UserConfig> users = conf.getUsers();
         // 构造结果集，包含所有列，同時根據條件過濾
         Map<String, Integer> columnIndex = SelectDTXBase.toMapIndex(allColumn);
-//        conf.getSchemas().get("").getTables().get("").getPrimaryKey();
         List<String[]> dataRows = new ArrayList<>();
         users.forEach((k,v)->{
             for (String name : values){
@@ -129,7 +126,6 @@ public final class SelectSchemaPrivilege
             row.packetId = ++packetId;
             buffer = row.write(buffer, c, true);
         }
-
 
         // write lastEof
         EOFPacket lastEof = new EOFPacket();

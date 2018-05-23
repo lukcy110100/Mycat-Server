@@ -456,6 +456,12 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 		}
 	}
 
+	/**
+	 * 生成冗余的表名带下划线的结果集
+	 *
+	 * @param row row
+	 * @param repeat repeat
+	 */
 	private void generateMoreData(byte[] row, int repeat) {
 		for (int i = 0; i < repeat; i++) {
 			this.netOutBytes += row.length;
@@ -505,11 +511,12 @@ public class SingleNodeHandler implements ResponseHandler, Terminatable, LoadDat
 //			}
 //		}
 
-		switch (rrs.getSqlType()){
+		switch (rrs.getSqlType()) {
 			case ServerParse.INFORMATION_SCHEMA_COLUMNS:
 				generateMoreData(row, 1);
 				return;
 			case ServerParse.INFORMATION_SCHEMA_TABLES:
+				// TODO yaodh 需要从配置中取最大冗余条数
 				generateMoreData(row, 10);
 				return;
 			default:

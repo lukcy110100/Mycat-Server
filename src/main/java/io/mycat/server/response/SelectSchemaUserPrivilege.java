@@ -56,7 +56,6 @@ public final class SelectSchemaUserPrivilege
 
     public static void execute(ServerConnection c, String sql) {
 
-        // "GRANTEE","TABLE_CATALOG","PRIVILEGE_TYPE","IS_GRANTABLE"
         List<String> allColumn = Lists.newArrayList("GRANTEE","TABLE_CATALOG","PRIVILEGE_TYPE","IS_GRANTABLE");
         MySqlStatementParser parser = new MySqlStatementParser(sql);
         SQLStatement stmt = parser.parseStatement();
@@ -88,7 +87,6 @@ public final class SelectSchemaUserPrivilege
         for (FieldPacket field : fields) {
             buffer = field.write(buffer, c,true);
         }
-
 
         EOFPacket eof = new EOFPacket();
         eof.packetId = ++packetId;

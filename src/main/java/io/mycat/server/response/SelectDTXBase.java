@@ -23,26 +23,10 @@
  */
 package io.mycat.server.response;
 
-import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
-import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
-import com.google.common.collect.Lists;
-import io.mycat.MycatServer;
-import io.mycat.backend.mysql.PacketUtil;
-import io.mycat.config.Fields;
-import io.mycat.config.MycatConfig;
-import io.mycat.config.model.UserConfig;
-import io.mycat.net.mysql.EOFPacket;
-import io.mycat.net.mysql.FieldPacket;
-import io.mycat.net.mysql.ResultSetHeaderPacket;
-import io.mycat.net.mysql.RowDataPacket;
-import io.mycat.server.ServerConnection;
-import io.mycat.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
 import java.util.*;
 
 /**

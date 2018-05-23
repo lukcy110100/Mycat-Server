@@ -23,31 +23,29 @@
  */
 package io.mycat.server;
 
-import java.io.IOException;
-import java.nio.channels.NetworkChannel;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import io.mycat.route.util.RouterUtil;
-import io.mycat.server.handler.MysqlInformationSchemaColumnsHandler;
-import io.mycat.server.util.DTSUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.mycat.MycatServer;
 import io.mycat.config.ErrorCode;
 import io.mycat.config.model.SchemaConfig;
 import io.mycat.net.FrontendConnection;
 import io.mycat.route.RouteResultset;
+import io.mycat.server.handler.MysqlInformationSchemaColumnsHandler;
 import io.mycat.server.handler.MysqlInformationSchemaHandler;
 import io.mycat.server.handler.MysqlProcHandler;
 import io.mycat.server.parser.ServerParse;
 import io.mycat.server.response.Heartbeat;
 import io.mycat.server.response.InformationSchemaProfiling;
 import io.mycat.server.response.Ping;
+import io.mycat.server.util.DTSUtil;
 import io.mycat.server.util.SchemaUtil;
 import io.mycat.util.SplitUtil;
 import io.mycat.util.TimeUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.channels.NetworkChannel;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author mycat
@@ -165,7 +163,9 @@ public class ServerConnection extends FrontendConnection {
 		}
 
 		// 改写sql，去掉表名后缀
+		LOGGER.info("Old sql:{}", sql);
 		sql = DTSUtil.changeSQLForDTS(this.user, this.schema, sql);
+		sql = sql.replaceAll("mdb_tbl_yaodh_\\d", "mdb_tbl_yaodh");
 		LOGGER.info("New sql:{}", sql);
 
 		// 检查当前使用的DB

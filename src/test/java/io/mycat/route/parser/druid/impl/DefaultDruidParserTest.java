@@ -1,6 +1,8 @@
 package io.mycat.route.parser.druid.impl;
 
 import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlSchemaStatVisitor;
 import com.alibaba.druid.sql.parser.SQLStatementParser;
@@ -41,7 +43,9 @@ public class DefaultDruidParserTest {
 	}
 	@Test
 	public void testParser() throws Exception {
-		Object[] aa = getParseTables("select TABLE_SCHEMA,PRIVILEGE_TYPE from information_schema.SCHEMA_PRIVILEGES where  grantee haha ('\\'czn\\'@\\'%\\'') and grantee like 'haha';");
+		Object[] aa ;
+//                aa = getParseTables("SHOW KEYS FROM `customers` FROM `test`;");
+		aa = getParseTables("select TABLE_SCHEMA,PRIVILEGE_TYPE from information_schema.SCHEMA_PRIVILEGES where  grantee haha ('\\'czn\\'@\\'%\\'') and grantee like 'haha';");
         aa = getParseTables("select TABLE_SCHEMA,PRIVILEGE_TYPE from information_schema.SCHEMA_PRIVILEGES fasdv ");
 		assertArrayEquals(getParseTables("select id as id from company t;"), getArr("company".toUpperCase()));
 		assertArrayEquals(getParseTables("select 1 from (select 1 from company) company;"), getArr("company".toUpperCase()));
@@ -51,8 +55,12 @@ public class DefaultDruidParserTest {
 	
 	private Object[] getParseTables(String sql) throws Exception{
 
+		String str = "select COLUMN_NAME, CHARACTER_SET_NAME, COLLATION_NAME, COLUMN_TYPE from information_schema.columns where table_schema = 'TESTDB' and table_name = 'mdb_tbl_yaodh_0';";
+		str = str.replaceAll("mdb_tbl_yaodh_\\d", "mdb_tbl_yaodh");
+
 		MySqlStatementParser parser1 = new MySqlStatementParser(sql);
 		SQLStatement stmt = parser1.parseStatement();
+
 
 		MySqlSchemaStatVisitor visitor1 = new MySqlSchemaStatVisitor();
 		stmt.accept(visitor1);
@@ -76,11 +84,15 @@ public class DefaultDruidParserTest {
 		
 		SQLStatementParser parser = new MySqlStatementParser(sql);
 		SQLStatement statement = parser.parseStatement();
+        SQLSelectStatement selectStmt = (SQLSelectStatement)statement;
+        SQLSelect ass = selectStmt.getSelect();
+//        ass.getQuery().
         MycatSchemaStatVisitor visitor = new MycatSchemaStatVisitor();
 
 
         LayerCachePool cachePool = mock(LayerCachePool.class);
-        RouteResultset rrs = new RouteResultset(sql, ServerParse.SELECT);
+
+        RouteResultset rrs = new RouteResultset(sql, ServerParse.SHOW);
 
 
 //		druidParser.visitorParse(rrs, statement, visitor);

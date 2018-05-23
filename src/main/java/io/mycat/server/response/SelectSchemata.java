@@ -32,7 +32,6 @@ import io.mycat.backend.mysql.PacketUtil;
 import io.mycat.config.Fields;
 import io.mycat.config.MycatConfig;
 import io.mycat.config.model.SchemaConfig;
-import io.mycat.config.model.UserConfig;
 import io.mycat.net.mysql.EOFPacket;
 import io.mycat.net.mysql.FieldPacket;
 import io.mycat.net.mysql.ResultSetHeaderPacket;
@@ -44,7 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,7 +57,6 @@ public final class SelectSchemata
     public static void execute(ServerConnection c, String sql) {
 
 
-        // "CATALOG_NAME","SCHEMA_NAME","DEFAULT_CHARACTER_SET_NAME","DEFAULT_COLLATION_NAME","SQL_PATH"
         // 从配置文件获取逻辑库和用户名进行拼接
         List<String> allColumn = Lists.newArrayList("CATALOG_NAME","SCHEMA_NAME","DEFAULT_CHARACTER_SET_NAME","DEFAULT_COLLATION_NAME","SQL_PATH");
         MySqlStatementParser parser = new MySqlStatementParser(sql);

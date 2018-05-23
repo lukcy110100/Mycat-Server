@@ -1,14 +1,15 @@
 package io.mycat.server.util;
 
-import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
-import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
-import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.ast.expr.*;
 import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
 import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
 import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.*;
+import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlInsertStatement;
+import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlReplaceStatement;
+import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.mysql.parser.MySqlStatementParser;
 import com.alibaba.druid.sql.parser.SQLStatementParser;
 import io.mycat.MycatServer;
@@ -16,13 +17,83 @@ import io.mycat.config.MycatConfig;
 import io.mycat.config.model.SchemaConfig;
 import io.mycat.route.parser.druid.MycatSchemaStatVisitor;
 import io.mycat.route.util.RouterUtil;
+import io.mycat.server.ServerConnection;
 import org.apache.commons.collections.CollectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+import java.util.Locale;
 
 public class DTSUtil {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ServerConnection.class);
+    private static final String TABLE_NAME_FIELD = "table_name";
+
+    private static void handleTableNameInCondition(String user, String schema, SQLInListExpr schemaInExpr) {
+        SQLExpr schemaInExprLeft = schemaInExpr.getExpr();
+        if (schemaInExprLeft instanceof SQLIdentifierExpr) {
+            SQLIdentifierExpr schemaIdentifyExpr = (SQLIdentifierExpr) schemaInExprLeft;
+            if (schemaIdentifyExpr.getName().equalsIgnoreCase(TABLE_NAME_FIELD)) {
+                List<SQLExpr> valueList = schemaInExpr.getTargetList();
+                if (!CollectionUtils.isEmpty(valueList)) {
+                    for (SQLExpr expr : valueList) {
+                        //不支持 not in
+                        if (schemaInExpr.isNot()) {
+                            String err = "table_schema condition illegal.";
+                            LOGGER.error(err);
+                            throw new RuntimeException(err);
+                        }
+                        if (expr instanceof SQLCharExpr) {
+                            SQLCharExpr value = (SQLCharExpr) expr;
+                            value.setText(getRealTableName(user, schema, value.getText()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void handleTableNameEqualCondition(String user, String schema, SQLIdentifierExpr schemaIdentifyExpr, SQLCharExpr value, SQLBinaryOperator operator) {
+        if (schemaIdentifyExpr.getName().equalsIgnoreCase(TABLE_NAME_FIELD)) {
+            if (!operator.getName().equalsIgnoreCase("=")) {
+                String err = "table_schema condition illegal.";
+                LOGGER.error(err);
+                throw new RuntimeException(err);
+            }
+            value.setText(getRealTableName(user, schema, value.getText()));
+        }
+    }
+
+    private static void handleWhereCondition(String user, String schema, SQLExpr whereExpr) {
+        if (whereExpr instanceof SQLBinaryOpExpr) {
+            SQLExpr left = ((SQLBinaryOpExpr) whereExpr).getLeft();
+            SQLExpr right = ((SQLBinaryOpExpr) whereExpr).getRight();
+            SQLBinaryOperator opertator = ((SQLBinaryOpExpr) whereExpr).getOperator();
+            if ((left instanceof SQLIdentifierExpr) && (right instanceof SQLCharExpr)) {
+                handleTableNameEqualCondition(user,schema,(SQLIdentifierExpr)left, (SQLCharExpr)right, opertator);
+            } else if ((right instanceof SQLIdentifierExpr) && (left instanceof SQLCharExpr)) {
+                handleTableNameEqualCondition(user,schema,(SQLIdentifierExpr) right, (SQLCharExpr)left, opertator);
+            }
+
+            //支持 table_schema =、in比较
+            if (left instanceof SQLBinaryOpExpr || left instanceof SQLInListExpr) {
+                handleWhereCondition(user,schema,((SQLBinaryOpExpr) whereExpr).getLeft());
+            }
+
+            if (right instanceof SQLBinaryOpExpr || right instanceof SQLInListExpr) {
+                handleWhereCondition(user,schema,((SQLBinaryOpExpr) whereExpr).getRight());
+            }
+
+            //如果是子查询，递归处理
+            if (right instanceof SQLInSubQueryExpr) {
+                SQLSelectQuery query = ((SQLInSubQueryExpr) right).getSubQuery().getQuery();
+                handleWhereCondition(user,schema,((MySqlSelectQueryBlock)query).getWhere());
+            }
+        } else if (whereExpr instanceof SQLInListExpr) {
+            handleTableNameInCondition(user,schema,(SQLInListExpr)whereExpr);
+        }
+    }
 
 
     /**
@@ -33,7 +104,7 @@ public class DTSUtil {
      * @param sql
      * @return
      */
-    public static String changeSQLForDTS(String user,String schema, String sql) {
+    public static String changeSQLForDTS(String user, String schema, String sql) {
         SQLStatementParser parser = new MySqlStatementParser(sql);
         SQLStatement statement = parser.parseStatement();
 
@@ -42,6 +113,12 @@ public class DTSUtil {
             SQLSelect select = sqlSelectStatement.getSelect();
             if (select != null && select.getQuery() instanceof MySqlSelectQueryBlock) {
                 MySqlSelectQueryBlock queryBlock = (MySqlSelectQueryBlock) select.getQuery();
+
+                if(sql.toUpperCase(Locale.ENGLISH).contains("INFORMATION_SCHEMA.COLUMNS")){
+                    handleWhereCondition(user, schema, queryBlock.getWhere());
+                    return statement.toString();
+                }
+
                 if (queryBlock.getFrom() instanceof SQLExprTableSource) {
                     SQLExprTableSource tableSource = (SQLExprTableSource) queryBlock.getFrom();
                     if (tableSource.getExpr() instanceof SQLPropertyExpr) {
@@ -87,23 +164,16 @@ public class DTSUtil {
 
             }
 
-        } else if (statement instanceof MySqlReplaceStatement) {
-            String routSQL = "insert " + sql.substring(sql.toLowerCase().indexOf("replace") + 7);
-            return "/** mycat:sql='" + routSQL + "' */" + RouterUtil.removeSchema(sql, schema);
-        }
-//        else if (statement instanceof MySqlShowKeysStatement) {
-//            MySqlShowKeysStatement sqlShowKey = (MySqlShowKeysStatement) statement;
-//            if (sqlShowKey.getTable() instanceof SQLIdentifierExpr) {
-//                SQLIdentifierExpr sqlIdExpr = (SQLIdentifierExpr) sqlShowKey.getTable();
-//                String table = getRealTableName(user, schema, sqlIdExpr.getSimpleName());
-//                sqlIdExpr.setName(table);
-//                sqlShowKey.setTable(sqlIdExpr);
-//                return statement.toString();
-//            }
-//        }
-        else if (statement instanceof MySqlInsertStatement) {
+        }else if(statement instanceof MySqlReplaceStatement)
+        {
+          String   routSQL = "insert "+sql.substring(sql.toLowerCase().indexOf("replace")+7);
+         return    "/** mycat:sql='"+routSQL+"' */"+RouterUtil.removeSchema(sql,schema);
+
+        }else if(statement instanceof MySqlInsertStatement)
+        {
             MySqlInsertStatement sqlInsertStatement = (MySqlInsertStatement) statement;
-            if (!sqlInsertStatement.isIgnore()) {
+            if(!sqlInsertStatement.isIgnore())
+            {
                 sqlInsertStatement.setIgnore(true);
                 sql = sqlInsertStatement.toString();
             }
@@ -118,9 +188,12 @@ public class DTSUtil {
             String table = getRealTableName(user, schema, key);
             if (!key.equalsIgnoreCase(table)) {
 
-                if (sqlScema != null && sqlScema.contains(key)) {
-                    int index = sql.replaceFirst(key, table).indexOf(key);
-                    return sql.substring(0, index + 2) + table + sql.substring(index + key.length());
+                if(sqlScema!=null && sqlScema.contains(key))
+                {
+                  int index =  sql.replaceFirst(key, makeEmptyString(key.length())).indexOf(key);
+                    String pre = sql.substring(0, index);
+                    String suffix = sql.substring(index + key.length());
+                    return pre +table+ suffix;
                 }
                 return sql.replaceFirst(key, table);
             }
@@ -128,6 +201,15 @@ public class DTSUtil {
 
 
         return sql;
+    }
+
+    private static String makeEmptyString(int size)
+    {
+        StringBuilder sb =new StringBuilder();
+        for (int i = 0; i < size; i++) {
+            sb.append(" ");
+        }
+        return sb.toString();
     }
 
 
@@ -166,14 +248,21 @@ public class DTSUtil {
     }
 
     public static void main(String[] args) {
+
         String sql = "select * from `informatio1n_schema`.columns_2_3 where table_schema = 'columns' and table_name = 'customers' limit 1 ";
         String rtn = changeSQLForDTS("s","base", sql);
         System.out.println(rtn);
+
+        sql = "select COLUMN_NAME, CHARACTER_SET_NAME, COLLATION_NAME, COLUMN_TYPE from information_schema.columns where table_schema = 'TESTDB' and table_name in( 'mdb_tbl_yaodh_0', 'mdb_tbl_yaodh_2')";
+        rtn = changeSQLForDTS("s","base", sql);
+        System.out.println(rtn);
+
+
         sql = "select COLUMN_NAME, CHARACTER_SET_NAME, COLLATION_NAME, COLUMN_TYPE from `base`.base where table_schema = 'columns' and table_name = 'customers' limit 1 ";
          rtn = changeSQLForDTS("s","base", sql);
         System.out.println(rtn);
 
-        sql = "truncate table  `base_1_2`.base_1";
+        sql = "truncate table  `base_1_2`.base_1 where ";
         rtn = changeSQLForDTS("s","base", sql);
         System.out.println(rtn);
         sql = "truncate table  `base_1_2`.`base_1`";
